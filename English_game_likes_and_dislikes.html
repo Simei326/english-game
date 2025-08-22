@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Like/Don’t Like — Picture Sorting + Sentence Unscramble</title>
+<style>
+  :root{--bg1:#7c3aed;--bg2:#4f46e5;--bg3:#f59e0b;--glass:rgba(255,255,255,.1)}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(135deg,var(--bg1),var(--bg2),var(--bg3));min-height:100vh;color:#0f172a;display:flex;align-items:center;justify-content:center}
+  .wrap{width:min(1100px,96vw);margin:36px auto}
+  .glass{background:var(--glass);backdrop-filter:blur(8px);border:1px solid #ffffff55;border-radius:22px;box-shadow:0 12px 36px rgba(0,0,0,.25)}
+  header{color:#fff;padding:18px 20px 6px}
+  h1{margin:0;font-size:clamp(22px,4.6vw,38px)}
+  .sub{opacity:.92}
+  nav{display:flex;gap:10px;flex-wrap:wrap;padding:12px 14px}
+  .tab{appearance:none;border:1px solid #ffffff66;background:#00000022;color:#fff;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+  .tab.active{background:#10b981;border-color:#10b981}
+  section{padding:14px}
+  .panel{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:14px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{appearance:none;border:0;border-radius:12px;padding:10px 14px;background:#6366f1;color:#fff;font-weight:700;cursor:pointer}
+  .btn.ghost{background:#e2e8f0;color:#111}
+  .hint{color:#64748b}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){.grid2{grid-template-columns:1fr}}
+  /* Picture cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+  .card{user-select:none;background:#f8fafc;border:1px solid #e5e7eb;border-radius:14px;padding:10px;display:grid;place-items:center;gap:6px;cursor:grab}
+  .card:active{cursor:grabbing}
+  .picio{font-size:60px;line-height:1}
+  .label{font-weight:700}
+  /* Drop columns */
+  .drop{min-height:200px;background:#fafafa;border:2px dashed #cbd5e1;border-radius:16px;padding:12px;position:relative}
+  .drop h3{margin:0 0 8px 0;display:flex;align-items:center;gap:8px}
+  .drop.over{background:#eef2ff;border-color:#6366f1}
+  /* Sentence tiles */
+  .tiles,.answer{display:flex;flex-wrap:wrap;gap:8px;min-height:60px;padding:10px;border-radius:12px;border:1px dashed #cbd5e1;background:#f8fafc}
+  .tile{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:8px 12px;font-weight:700;cursor:grab}
+  .tile:active{cursor:grabbing}
+  .correct{background:#ecfeff;border-color:#06b6d4}
+  .wrong{background:#fff1f2;border-color:#fb7185}
+</style>
+</head>
+<body>
+<div class="wrap glass">
+  <header>
+    <h1>Like / Don’t Like — Sorting Games</h1>
+    <div class="sub">Drag pictures into 😊 LIKE or 🙁 DON’T LIKE. Then build sentences that say only “I like …” or “I don’t like …”.</div>
+  </header>
+
+  <nav>
+    <button class="tab active" data-tab="pictures">🖼️ Picture Sorting</button>
+    <button class="tab" data-tab="sentences">🔤 Sentence Unscramble</button>
+  </nav>
+
+  <!-- Picture Sorting -->
+  <section id="pictures">
+    <div class="panel" style="margin-bottom:10px">
+      <div class="row">
+        <strong>Choose set:</strong>
+        <select id="setPicker" class="btn ghost" style="padding:8px 10px">
+          <option value="food">Food</option>
+          <option value="hobbies">Hobbies</option>
+          <option value="animals">Animals</option>
+        </select>
+        <button id="shufflePics" class="btn">Shuffle</button>
+        <button id="resetPics" class="btn ghost">Reset board</button>
+        <span class="hint">Tip: You can replace any emoji with an image file path like <code>image/pizza.jpg</code>.</span>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="panel">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Cards</h3>
+          <span class="hint" id="remainingHint"></span>
+        </div>
+        <div id="cardTray" class="cards" aria-label="draggable picture cards"></div>
+      </div>
+
+      <div class="panel">
+        <div class="grid2">
+          <div id="likeDrop" class="drop" aria-label="Like column">
+            <h3>😊 LIKE</h3>
+            <div class="cards"></div>
+          </div>
+          <div id="dislikeDrop" class="drop" aria-label="Don’t like column">
+            <h3>🙁 DON’T LIKE</h3>
+            <div class="cards"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sentence Sorting -->
+  <section id="sentences" hidden>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <div>
+          <strong>Build the sentence:</strong>
+          <span class="hint">(Only use “I like …” or “I don’t like …”)</span>
+        </div>
+        <div class="row">
+          <button id="newSentence" class="btn">New sentence</button>
+          <button id="checkSentence" class="btn">Check</button>
+          <button id="resetSentence" class="btn ghost">Reset</button>
+        </div>
+      </div>
+
+      <h2 id="sentencePrompt" style="margin:12px 0 4px">Unscramble:</h2>
+      <div id="tiles" class="tiles" aria-label="Scrambled words"></div>
+      <h3 style="margin:14px 0 6px">Your sentence</h3>
+      <div id="answer" class="answer" aria-label="Assemble here"></div>
+      <p id="feedback" class="hint" style="margin-top:8px"></p>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =============== Data (emoji by default; swap pic with "image/xyz.jpg" if you have images) =============== */
+const SETS = {
+  food: [
+    {label:"pizza", pic:"🍕"}, {label:"apple", pic:"🍎"}, {label:"bread", pic:"🍞"},
+    {label:"noodles", pic:"🍜"}, {label:"ice cream", pic:"🍦"}, {label:"salad", pic:"🥗"},
+    {label:"rice", pic:"🍚"}, {label:"cake", pic:"🍰"}
+  ],
+  hobbies: [
+    {label:"football", pic:"⚽"}, {label:"swimming", pic:"🏊"}, {label:"reading", pic:"📚"},
+    {label:"drawing", pic:"🎨"}, {label:"gaming", pic:"🎮"}, {label:"music", pic:"🎵"}
+  ],
+  animals: [
+    {label:"dog", pic:"🐶"}, {label:"cat", pic:"🐱"}, {label:"panda", pic:"🐼"},
+    {label:"lion", pic:"🦁"}, {label:"rabbit", pic:"🐰"}, {label:"turtle", pic:"🐢"}
+  ]
+};
+
+/* =============== Tabs =============== */
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const id = btn.dataset.tab;
+    document.querySelectorAll('section').forEach(s=>s.hidden = s.id !== id);
+  };
+});
+
+/* =============== Helpers =============== */
+const $ = s=>document.querySelector(s);
+const cardTray = $('#cardTray'), likeDrop = $('#likeDrop .cards'), dislikeDrop = $('#dislikeDrop .cards');
+const remainingHint = $('#remainingHint');
+
+function renderPicHTML(pic, alt, size=64){
+  const lower = String(pic).toLowerCase();
+  const isImg = [".png",".jpg",".jpeg",".webp",".svg"].some(ext=>lower.endsWith(ext));
+  if(isImg){
+    return `<img src="${pic}" alt="${alt}" style="width:${size}px;height:${size}px;object-fit:contain" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'${alt}',style:'font-weight:700'}))">`;
+  }
+  return `<div class="picio" aria-hidden="true" role="img">${pic}</div>`;
+}
+
+function makeCard(item){
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.draggable = true;
+  el.innerHTML = `${renderPicHTML(item.pic, item.label)}<div class="label">${item.label}</div>`;
+  el.dataset.label = item.label;
+  el.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('text/plain', item.label);
+    setTimeout(()=> el.style.opacity=.3, 0);
+  });
+  el.addEventListener('dragend', ()=> el.style.opacity=1);
+  return el;
+}
+
+function setupDropArea(area){
+  const host = area.closest('.drop');
+  host.addEventListener('dragover', e=>{ e.preventDefault(); host.classList.add('over'); });
+  host.addEventListener('dragleave', ()=> host.classList.remove('over'));
+  host.addEventListener('drop', e=>{
+    e.preventDefault(); host.classList.remove('over');
+    const label = e.dataTransfer.getData('text/plain');
+    const card = [...document.querySelectorAll('.card')].find(c=>c.dataset.label===label);
+    if(card) area.appendChild(card);
+    updateRemaining();
+  });
+}
+
+function updateRemaining(){
+  const total = document.querySelectorAll('#cardTray .card').length;
+  remainingHint.textContent = total ? `${total} not sorted yet` : 'All sorted! 🎉';
+}
+
+/* =============== Picture Sorting =============== */
+const setPicker = $('#setPicker');
+
+function loadSet(name){
+  cardTray.innerHTML = likeDrop.innerHTML = dislikeDrop.innerHTML = '';
+  const arr = [...SETS[name]];
+  arr.forEach(item => cardTray.appendChild(makeCard(item)));
+  updateRemaining();
+}
+setPicker.onchange = ()=> loadSet(setPicker.value);
+$('#shufflePics').onclick = ()=>{
+  [...cardTray.children].sort(()=>Math.random()-0.5).forEach(n=>cardTray.appendChild(n));
+};
+$('#resetPics').onclick = ()=> loadSet(setPicker.value);
+setupDropArea(likeDrop);
+setupDropArea(dislikeDrop);
+loadSet('food');
+
+/* =============== Sentence Unscramble (I like / I don't like) =============== */
+const things = Array.from(new Set(
+  [...SETS.food, ...SETS.hobbies, ...SETS.animals].map(x=>x.label)
+));
+const tilesBox = $('#tiles'), answerBox = $('#answer'), feedback = $('#feedback');
+
+function sentencePieces(){
+  const thing = things[Math.floor(Math.random()*things.length)];
+  const like = Math.random() < 0.5;
+  const correct = like ? `I like ${thing}.` : `I don't like ${thing}.`;
+  // Split into tiles (treat "don't" as one token)
+  const tokens = like ? ['I','like',thing,'.'] : ['I',"don't",'like',thing,'.'];
+  // Make a shuffled copy
+  const scrambled = [...tokens].sort(()=>Math.random()-0.5);
+  return {correct, tokens, scrambled};
+}
+let current = null;
+
+function renderTiles(){
+  tilesBox.innerHTML = ''; answerBox.innerHTML = ''; feedback.textContent='';
+  current.scrambled.forEach(t => tilesBox.appendChild(makeTile(t)));
+}
+function makeTile(tok){
+  const el = document.createElement('div');
+  el.className = 'tile';
+  el.draggable = true;
+  el.textContent = tok;
+  el.addEventListener('dragstart', e=>{
+    e.dataTransfer.setData('text/plain', tok);
+    e.dataTransfer.setData('src', el.parentElement.id); // tiles or answer
+    setTimeout(()=> el.style.opacity=.3, 0);
+  });
+  el.addEventListener('dragend', ()=> el.style.opacity=1);
+  return el;
+}
+function setupSentenceDrop(box){
+  box.addEventListener('dragover', e=>e.preventDefault());
+  box.addEventListener('drop', e=>{
+    e.preventDefault();
+    const tok = e.dataTransfer.getData('text/plain');
+    const src = e.dataTransfer.getData('src');
+    // Find an element with that token in the src box
+    const from = src==='tiles' ? tilesBox : answerBox;
+    const el = [...from.children].find(ch=>ch.textContent===tok);
+    if(el) box.appendChild(el);
+  });
+}
+setupSentenceDrop(tilesBox);
+setupSentenceDrop(answerBox);
+
+function newSentence(){
+  current = sentencePieces();
+  $('#sentencePrompt').textContent = 'Unscramble the words to make a sentence:';
+  renderTiles();
+}
+$('#newSentence').onclick = newSentence;
+$('#resetSentence').onclick = renderTiles;
+$('#checkSentence').onclick = ()=>{
+  const attempt = [...answerBox.children].map(x=>x.textContent).join(' ');
+  const normalized = attempt.replace(/\s+([.])/g,'$1'); // handle space before period
+  if(normalized === current.tokens.join(' ').replace(' .','.')){
+    answerBox.classList.remove('wrong'); answerBox.classList.add('correct');
+    feedback.textContent = 'Great! ✅';
+  } else {
+    answerBox.classList.remove('correct'); answerBox.classList.add('wrong');
+    feedback.textContent = `Not quite. Try again. Hint: Only “I (don't) like ….”`;
+  }
+};
+newSentence();
+</script>
+</body>
+</html>
