@@ -3,14 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Global English Playground — Food & Hangman</title>
+<title>Global English Playground — Food (Pics + Quiz + Hangman)</title>
 <style>
   :root { --glass: rgba(255,255,255,.1); }
-  body {
-    margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    background: linear-gradient(135deg, #c026d3, #4f46e5, #f59e0b);
-    min-height:100vh; color:#111; display:flex; align-items:center; justify-content:center;
-  }
+  body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+         background: linear-gradient(135deg, #c026d3, #4f46e5, #f59e0b);
+         min-height:100vh; color:#111; display:flex; align-items:center; justify-content:center; }
   .wrap { width:min(1100px, 96vw); margin:36px auto; }
   .glass { background:var(--glass); border:1px solid rgba(255,255,255,.35); backdrop-filter: blur(8px);
            border-radius:22px; box-shadow:0 12px 36px rgba(0,0,0,.25); }
@@ -29,20 +27,11 @@
   .btn { appearance:none; border:0; padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; color:#fff; background:#6366f1; box-shadow:0 6px 18px rgba(0,0,0,.18); }
   .btn.alt { background:#10b981; }
   .btn.ghost { background:#e2e8f0; color:#111; }
-  kbd { background:#e2e8f0; padding:2px 6px; border-radius:6px; }
-
-  /* Flashcards */
-  .flash-face { border-radius:16px; border:1px solid #fcd34d; background:linear-gradient(135deg,#fff7ed,#fef3c7); padding:20px; text-align:center; }
-  .word { font-size:44px; font-weight:800; }
-  .hint { font-size:22px; font-weight:700; }
-
-  /* Quiz */
-  .option { padding:12px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; }
+  .option { padding:12px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; display:grid; place-items:center; }
   .option:hover { background:#f8fafc; }
   .list { display:flex; flex-wrap:wrap; gap:6px; }
   .tag { background:#f1f5f9; border:1px solid #e2e8f0; padding:6px 10px; border-radius:999px; }
-
-  /* Hangman */
+  .quiz-img { width:96px; height:96px; object-fit:contain; }
   canvas { border-radius:16px; background:#fff; border:1px solid #e5e7eb; width:100%; height:auto; }
   .hangman-word { letter-spacing:.25em; font-size:28px; font-weight:800; text-align:center; }
   .kbd-grid { display:grid; grid-template-columns: repeat(13, minmax(0,1fr)); gap:6px; }
@@ -56,7 +45,7 @@
     <header>
       <span class="pill">Fun · Voice · Progress</span>
       <h1>Global English Playground — Food</h1>
-      <div class="sub">Flashcards, Quiz (with mistakes review), and a Hangman game for learning food words.</div>
+      <div class="sub">Picture flashcards, picture-match quiz (with mistakes review), and a Hangman game.</div>
     </header>
 
     <nav>
@@ -94,10 +83,7 @@
             <span class="muted">Flashcard <span id="fcIndex">1</span> / <span id="fcTotal">0</span></span>
             <button class="btn ghost" id="fcSpeak">🔊 Speak</button>
           </div>
-          <div id="fcFace" class="flash-face" style="margin:12px 0;">
-            <div class="word" id="fcWord">cake</div>
-            <div class="muted">Click “Show hint”</div>
-          </div>
+          <div id="fcFace" class="flash-face" style="margin:12px 0;"></div>
           <div class="row">
             <button class="btn alt" id="fcHint">Show hint</button>
             <button class="btn" id="fcKnow">I knew it</button>
@@ -167,305 +153,122 @@
 
 <script>
 /* =======================
-   Content: Food words
+   Food words (emoji + your crisps image)
    ======================= */
 const WORD_BANK = [
-  { word: "cake",     hint: "sweet baked dessert" },
-  { word: "rice",     hint: "small white grain, staple food" },
-  { word: "sandwich", hint: "filling between slices of bread" },
-  { word: "pizza",    hint: "flat bread with cheese and toppings" },
-  { word: "crisps",   hint: "thin fried potato snacks (UK)" },
-  { word: "biscuit",  hint: "sweet baked cookie (UK)" },
-  { word: "noodle",   hint: "long thin strips of dough" },
-  { word: "bread",    hint: "baked loaf made from flour" },
-  { word: "soup",     hint: "warm liquid dish" },
-  { word: "pie",      hint: "baked pastry with filling" }
+  { word: "cake",     hint: "sweet baked dessert",                 pic: "🍰" },
+  { word: "rice",     hint: "small white grain, staple food",      pic: "🍚" },
+  { word: "sandwich", hint: "filling between slices of bread",     pic: "🥪" },
+  { word: "pizza",    hint: "flat bread with cheese & toppings",   pic: "🍕" },
+  { word: "crisps",   hint: "thin fried potato snack (UK)",        pic: "images/crisps.png" }, // image file
+  { word: "biscuit",  hint: "sweet baked cookie (UK)",             pic: "🍪" },
+  { word: "noodle",   hint: "long thin strips of dough",           pic: "🍜" },
+  { word: "bread",    hint: "baked loaf made from flour",          pic: "🍞" },
+  { word: "soup",     hint: "warm liquid dish",                    pic: "🍲" },
+  { word: "pie",      hint: "baked pastry with filling",           pic: "🥧" }
 ];
 
+/* Speak helper */
 function speak(text){
   if(!('speechSynthesis' in window)) return;
   const u = new SpeechSynthesisUtterance(text);
-  const voices = speechSynthesis.getVoices?.() || [];
-  const en = voices.find(v => v.lang && v.lang.startsWith('en'));
-  if (en) u.voice = en; u.rate = 0.95;
-  speechSynthesis.speak(u);
+  const v = (speechSynthesis.getVoices?.()||[]).find(x=>x.lang?.startsWith('en'));
+  if(v) u.voice = v; u.rate = 0.95; speechSynthesis.speak(u);
 }
 
-/* =======================
-   Progress (localStorage)
-   ======================= */
-const STORE_KEY = "engPlay_food_v1";
-function loadProgress(){
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || { points:0, streak:0, lastActive:null, words:[], sessions:0 }; }
-  catch { return { points:0, streak:0, lastActive:null, words:[], sessions:0 }; }
-}
-function saveProgress(p){ localStorage.setItem(STORE_KEY, JSON.stringify(p)); }
-function todayISO(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()).toISOString(); }
-function diffDays(a,b){ try { return Math.round((new Date(b)-new Date(a))/(1000*60*60*24)); } catch { return 0; } }
-
-let progress = loadProgress();
-function bumpActivity(pts=1){
-  const today = todayISO();
-  if (!progress.lastActive) progress.streak = 1;
-  else {
-    const d = diffDays(progress.lastActive, today);
-    if (d === 1) progress.streak += 1;
-    else if (d > 1) progress.streak = 1;
+/* Render emoji OR image (with graceful fallback) */
+function renderPic(pic, word, size=96){
+  const lower = String(pic).toLowerCase();
+  const isImg = [".png",".jpg",".jpeg",".webp",".svg"].some(ext=>lower.endsWith(ext));
+  if (isImg) {
+    return `<img src="${pic}" alt="${word}" class="quiz-img" style="width:${size}px;height:${size}px"
+      onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'${word}',style:'padding:8px;font-weight:700'}))">`;
   }
-  progress.lastActive = today;
-  progress.points += pts;
-  saveProgress(progress);
-  renderDashboard();
+  return `<div style="font-size:${size-10}px;line-height:1">${pic}</div>`;
 }
-function recordWord(w){
-  if (!progress.words.includes(w)) progress.words.push(w);
-  saveProgress(progress); renderDashboard();
-}
-function renderDashboard(){
-  document.getElementById('statPoints').textContent = progress.points;
-  document.getElementById('statStreak').textContent = progress.streak || 0;
-  document.getElementById('statLast').textContent = progress.lastActive ? new Date(progress.lastActive).toDateString() : "—";
-  const wordsRow = document.getElementById('wordsRow');
-  wordsRow.innerHTML = "";
-  progress.words.forEach(w => {
-    const span = document.createElement('span');
-    span.className = "pill"; span.textContent = w;
-    wordsRow.appendChild(span);
-  });
-}
+
+/* ===== Progress ===== */
+const STORE_KEY="engPlay_food_purple_v2";
+const load=()=>{try{return JSON.parse(localStorage.getItem(STORE_KEY))||{points:0,streak:0,lastActive:null,words:[]}}catch{return{points:0,streak:0,lastActive:null,words:[]}}};
+const save=p=>localStorage.setItem(STORE_KEY,JSON.stringify(p));
+const todayISO=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate()).toISOString();}
+const diffDays=(a,b)=>{try{return Math.round((new Date(b)-new Date(a))/86400000)}catch{return 0}}
+let progress=load();
+function bumpActivity(pts=1){const t=todayISO();if(!progress.lastActive)progress.streak=1;else{const d=diffDays(progress.lastActive,t);progress.streak=d===1?progress.streak+1:d>1?1:progress.streak}progress.lastActive=t;progress.points+=pts;save(progress);renderDashboard();}
+function recordWord(w){if(!progress.words.includes(w))progress.words.push(w);save(progress);renderDashboard();}
+function renderDashboard(){statPoints.textContent=progress.points;statStreak.textContent=progress.streak||0;statLast.textContent=progress.lastActive?new Date(progress.lastActive).toDateString():"—";wordsRow.innerHTML="";progress.words.forEach(w=>{const s=document.createElement('span');s.className="pill";s.textContent=w;wordsRow.appendChild(s);});}
+const statPoints=document.getElementById('statPoints'),statStreak=document.getElementById('statStreak'),statLast=document.getElementById('statLast'),wordsRow=document.getElementById('wordsRow');
 renderDashboard();
 
-/* =======================
-   Tabs
-   ======================= */
-const tabs = document.querySelectorAll('nav button');
-const sections = document.querySelectorAll('.content');
-tabs.forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    tabs.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    const id = btn.dataset.tab;
-    sections.forEach(s=> s.hidden = s.id !== id);
-  });
+/* ===== Tabs ===== */
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const id=b.dataset.tab;document.querySelectorAll('.content').forEach(s=>s.hidden=s.id!==id);}
 });
 
-/* =======================
-   Flashcards
-   ======================= */
-const fcWordEl = document.getElementById('fcWord');
-const fcFace = document.getElementById('fcFace');
-const fcIndexEl = document.getElementById('fcIndex');
-const fcTotalEl = document.getElementById('fcTotal');
-const fcPractice = document.getElementById('fcPractice');
-let fcI = 0, fcShowHint = false;
-fcTotalEl.textContent = WORD_BANK.length;
-
+/* ===== Flashcards ===== */
+const fcFace=document.getElementById('fcFace'),fcIndexEl=document.getElementById('fcIndex'),fcTotalEl=document.getElementById('fcTotal'),fcPractice=document.getElementById('fcPractice');
+let fcI=0, fcShowHint=false; fcTotalEl.textContent=WORD_BANK.length;
 function flashRender(){
-  const card = WORD_BANK[fcI];
-  fcIndexEl.textContent = fcI + 1;
-  fcPractice.textContent = `Say: “${card.word}”`;
-  if (!fcShowHint){
-    fcFace.innerHTML = `<div class="word">${card.word}</div><div class="muted">Click “Show hint”</div>`;
-  } else {
-    fcFace.innerHTML = `<div class="hint">${card.hint}</div>`;
-  }
+  const c=WORD_BANK[fcI]; fcIndexEl.textContent=fcI+1; fcPractice.textContent=`Say: “${c.word}”`;
+  const pic=renderPic(c.pic,c.word,140);
+  fcFace.innerHTML = !fcShowHint
+    ? `<div style="display:grid;place-items:center;gap:8px">${pic}<div class="muted">What is this food? (Click “Show hint”)</div></div>`
+    : `<div style="display:grid;place-items:center;gap:8px">${pic}<div class="word">${c.word}</div><div class="hint">${c.hint}</div></div>`;
 }
 flashRender();
+document.getElementById('fcHint').onclick=()=>{fcShowHint=!fcShowHint;flashRender();}
+document.getElementById('fcNext').onclick=()=>{fcI=(fcI+1)%WORD_BANK.length;fcShowHint=false;flashRender();}
+document.getElementById('fcKnow').onclick=()=>{bumpActivity(2);recordWord(WORD_BANK[fcI].word);fcI=(fcI+1)%WORD_BANK.length;fcShowHint=false;flashRender();}
+document.getElementById('fcSpeak').onclick=()=>speak(WORD_BANK[fcI].word);
 
-document.getElementById('fcHint').onclick = () => { fcShowHint = !fcShowHint; flashRender(); };
-document.getElementById('fcNext').onclick = () => { fcI = (fcI + 1) % WORD_BANK.length; fcShowHint = false; flashRender(); };
-document.getElementById('fcKnow').onclick = () => { bumpActivity(2); recordWord(WORD_BANK[fcI].word); fcI = (fcI + 1) % WORD_BANK.length; fcShowHint=false; flashRender(); };
-document.getElementById('fcSpeak').onclick = () => speak(WORD_BANK[fcI].word);
-
-/* =======================
-   Quiz (stores mistakes + redo)
-   ======================= */
-const qProg = document.getElementById('qProg');
-const qScorePill = document.getElementById('qScorePill');
-const qPrompt = document.getElementById('qPrompt');
-const qOptions = document.getElementById('qOptions');
-const qSummary = document.getElementById('qSummary');
-const qMistakesList = document.getElementById('qMistakesList');
-const qRedo = document.getElementById('qRedo');
-const qRestart = document.getElementById('qRestart');
-
-const MISTAKES_KEY = "engPlay_food_quiz_mistakes";
-function loadSavedMistakes(){ try{ return JSON.parse(localStorage.getItem(MISTAKES_KEY))||[];}catch{ return []; } }
-function saveSavedMistakes(arr){ localStorage.setItem(MISTAKES_KEY, JSON.stringify(arr)); }
-
-let qIndex = 0, qScore = 0, qTotal = 6;
-let qPool = [...WORD_BANK];           // active pool for current run
-let qWrongThisRun = [];               // {word,hint} that were wrong this time
-
-function startQuiz(pool=WORD_BANK){
-  qPool = [...pool];
-  qIndex = 0; qScore = 0;
-  qWrongThisRun = [];
-  qSummary.style.display = "none";
-  qOptions.innerHTML = "";
-  quizRender();
-}
-function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-
-function makeQuestion(){
-  const correct = pickRandom(qPool);
-  // Prompt with the hint; options are WORDS
-  const wrongWords = WORD_BANK.filter(w=>w.word!==correct.word).sort(()=>0.5-Math.random()).slice(0,3).map(o=>o.word);
-  const options = [...wrongWords, correct.word].sort(()=>0.5-Math.random());
-  return { prompt:`Which word matches this hint: “${correct.hint}”?`, options, answer: correct.word, word: correct.word, hint: correct.hint };
-}
-
+/* ===== Quiz: picture match + mistakes review ===== */
+const qProg=document.getElementById('qProg'),qScorePill=document.getElementById('qScorePill'),qPrompt=document.getElementById('qPrompt'),qOptions=document.getElementById('qOptions'),qSummary=document.getElementById('qSummary'),qMistakesList=document.getElementById('qMistakesList'),qRedo=document.getElementById('qRedo'),qRestart=document.getElementById('qRestart');
+const MISTAKES_KEY="engPlay_food_pics_quiz_mistakes_v2"; const loadMistakes=()=>{try{return JSON.parse(localStorage.getItem(MISTAKES_KEY))||[]}catch{return[]}}, saveMistakes=a=>localStorage.setItem(MISTAKES_KEY,JSON.stringify(a));
+let qIndex=0,qScore=0,qTotal=6,qWrongThisRun=[];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function startQuiz(pool=WORD_BANK){qPool=[...pool];qIndex=0;qScore=0;qWrongThisRun=[];qSummary.style.display="none";qOptions.innerHTML="";quizRender();}
+function makeQuestion(){const correct=pick(qPool);const others=WORD_BANK.filter(w=>w.word!==correct.word).sort(()=>0.5-Math.random()).slice(0,3);const options=[...others,correct].sort(()=>0.5-Math.random());return{prompt:`Tap the picture for: “${correct.word}”`,options,answer:correct.word,word:correct.word,hint:correct.hint};}
 function quizRender(){
-  if (qIndex >= qTotal){
-    qPrompt.textContent = `Finished! Your score: ${qScore} / ${qTotal}`;
-    qOptions.innerHTML = "";
-    // Build summary of mistakes
-    qMistakesList.innerHTML = "";
-    if (qWrongThisRun.length){
-      const saved = new Set(loadSavedMistakes());
-      qWrongThisRun.forEach(({word, hint})=>{
-        const tag = document.createElement('span');
-        tag.className = "tag"; tag.textContent = `${word} — ${hint}`;
-        qMistakesList.appendChild(tag);
-        saved.add(word);
-      });
-      saveSavedMistakes([...saved]);
-      qRedo.disabled = false;
-    } else {
-      const tag = document.createElement('span');
-      tag.className = "tag"; tag.textContent = "No mistakes — great job!";
-      qMistakesList.appendChild(tag);
-      qRedo.disabled = true;
-    }
-    qSummary.style.display = "block";
-    return;
+  if(qIndex>=qTotal){
+    qPrompt.textContent=`Finished! Your score: ${qScore} / ${qTotal}`; qOptions.innerHTML=""; qMistakesList.innerHTML="";
+    if(qWrongThisRun.length){const saved=new Set(loadMistakes()); qWrongThisRun.forEach(({word,hint})=>{const tag=document.createElement('span'); tag.className="tag"; tag.textContent=`${word} — ${hint}`; qMistakesList.appendChild(tag); saved.add(word);}); saveMistakes([...saved]); qRedo.disabled=false;}
+    else {const tag=document.createElement('span'); tag.className="tag"; tag.textContent="No mistakes — great job!"; qMistakesList.appendChild(tag); qRedo.disabled=true;}
+    qSummary.style.display="block"; return;
   }
-
-  const q = makeQuestion();
-  qProg.textContent = `Question ${qIndex+1} / ${qTotal}`;
-  qScorePill.textContent = `Score ${qScore}`;
-  qPrompt.textContent = q.prompt;
-  qOptions.innerHTML = "";
-
-  q.options.forEach(opt=>{
-    const btn = document.createElement('div');
-    btn.className = "option";
-    btn.textContent = opt;
-    btn.onclick = () => {
-      if (opt === q.answer){ 
-        qScore++; bumpActivity(2); recordWord(q.word);
-      } else {
-        // store mistake for this run
-        qWrongThisRun.push({ word: q.word, hint: q.hint });
-      }
-      qIndex++; quizRender();
-    };
+  const q=makeQuestion(); qProg.textContent=`Question ${qIndex+1} / ${qTotal}`; qScorePill.textContent=`Score ${qScore}`; qPrompt.textContent=q.prompt; qOptions.innerHTML="";
+  q.options.forEach(opt=>{const btn=document.createElement('button'); btn.className="option"; btn.style.minWidth="120px"; btn.style.height="120px"; btn.innerHTML=renderPic(opt.pic,opt.word,80); btn.setAttribute("aria-label",opt.word);
+    btn.onclick=()=>{ if(opt.word===q.answer){ qScore++; bumpActivity(2); recordWord(q.word); speak(q.word);} else { qWrongThisRun.push({word:q.word,hint:q.hint}); } qIndex++; quizRender(); };
     qOptions.appendChild(btn);
   });
 }
-
-qRedo.onclick = ()=>{
-  if (!qWrongThisRun.length) return;
-  // Build a pool from the mistakes and run a short quiz with them
-  const pool = WORD_BANK.filter(w => qWrongThisRun.some(m => m.word === w.word));
-  qTotal = Math.max(1, pool.length);
-  startQuiz(pool);
-};
-qRestart.onclick = ()=>{
-  qTotal = 6;
-  startQuiz(WORD_BANK);
-};
+qRedo.onclick=()=>{ if(!qWrongThisRun.length) return; const pool=WORD_BANK.filter(w=>qWrongThisRun.some(m=>m.word===w.word)); qTotal=Math.max(1,pool.length); startQuiz(pool); };
+qRestart.onclick=()=>{ qTotal=6; startQuiz(WORD_BANK); };
 startQuiz(WORD_BANK);
 
-/* =======================
-   Hangman Game (food words)
-   ======================= */
-const hmCanvas = document.getElementById('hmCanvas');
-const hctx = hmCanvas.getContext('2d');
-const hmWordEl = document.getElementById('hmWord');
-const hmInfo = document.getElementById('hmInfo');
-const hmScore = document.getElementById('hmScore');
-const hmKeys = document.getElementById('hmKeys');
-
-let hmWins = 0;
-let target = "", revealed = [], wrong = 0, maxWrong = 6;
-const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-
-function drawGallows(){
-  hctx.clearRect(0,0,hmCanvas.width,hmCanvas.height);
-  hctx.lineWidth = 4; hctx.strokeStyle = "#0f172a";
-  hctx.beginPath(); hctx.moveTo(40,300); hctx.lineTo(200,300); hctx.stroke();     // base
-  hctx.beginPath(); hctx.moveTo(80,300); hctx.lineTo(80,60); hctx.lineTo(220,60); hctx.lineTo(220,90); hctx.stroke();  // pole
-  if (wrong>0){ hctx.beginPath(); hctx.arc(220,115,25,0,Math.PI*2); hctx.stroke(); } // head
-  if (wrong>1){ hctx.beginPath(); hctx.moveTo(220,140); hctx.lineTo(220,210); hctx.stroke(); } // body
-  if (wrong>2){ hctx.beginPath(); hctx.moveTo(220,160); hctx.lineTo(190,190); hctx.stroke(); } // L arm
-  if (wrong>3){ hctx.beginPath(); hctx.moveTo(220,160); hctx.lineTo(250,190); hctx.stroke(); } // R arm
-  if (wrong>4){ hctx.beginPath(); hctx.moveTo(220,210); hctx.lineTo(195,250); hctx.stroke(); } // L leg
-  if (wrong>5){ hctx.beginPath(); hctx.moveTo(220,210); hctx.lineTo(245,250); hctx.stroke(); } // R leg
+/* ===== Hangman ===== */
+const hmCanvas=document.getElementById('hmCanvas'), hctx=hmCanvas.getContext('2d'), hmWordEl=document.getElementById('hmWord'), hmInfo=document.getElementById('hmInfo'), hmScore=document.getElementById('hmScore'), hmKeys=document.getElementById('hmKeys');
+let hmWins=0,target="",revealed=[],wrong=0,maxWrong=6; const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+function drawGallows(){ hctx.clearRect(0,0,hmCanvas.width,hmCanvas.height); hctx.lineWidth=4; hctx.strokeStyle="#0f172a";
+  hctx.beginPath(); hctx.moveTo(40,300); hctx.lineTo(200,300); hctx.stroke();
+  hctx.beginPath(); hctx.moveTo(80,300); hctx.lineTo(80,60); hctx.lineTo(220,60); hctx.lineTo(220,90); hctx.stroke();
+  if(wrong>0){hctx.beginPath();hctx.arc(220,115,25,0,Math.PI*2);hctx.stroke();}
+  if(wrong>1){hctx.beginPath();hctx.moveTo(220,140);hctx.lineTo(220,210);hctx.stroke();}
+  if(wrong>2){hctx.beginPath();hctx.moveTo(220,160);hctx.lineTo(190,190);hctx.stroke();}
+  if(wrong>3){hctx.beginPath();hctx.moveTo(220,160);hctx.lineTo(250,190);hctx.stroke();}
+  if(wrong>4){hctx.beginPath();hctx.moveTo(220,210);hctx.lineTo(195,250);hctx.stroke();}
+  if(wrong>5){hctx.beginPath();hctx.moveTo(220,210);hctx.lineTo(245,250);hctx.stroke();}
 }
-
-function newWord(){
-  const pick = WORD_BANK[Math.floor(Math.random()*WORD_BANK.length)];
-  target = pick.word.toUpperCase();
-  revealed = Array.from(target).map(ch => (ch==='-' ? '-' : '_'));
-  wrong = 0;
-  hmInfo.textContent = `${maxWrong - wrong} lives left`;
-  hmWordEl.textContent = revealed.join(' ');
-  setKeysEnabled(true);
-  drawGallows();
-}
-
-function setKeysEnabled(enabled){
-  [...hmKeys.querySelectorAll('button')].forEach(btn => btn.disabled = !enabled);
-}
-
+function newWord(){ const pick=WORD_BANK[Math.floor(Math.random()*WORD_BANK.length)]; target=pick.word.toUpperCase(); revealed=Array.from(target).map(ch=>ch==='-'?'-':'_'); wrong=0; hmInfo.textContent=`${maxWrong-wrong} lives left`; hmWordEl.textContent=revealed.join(' '); setKeysEnabled(true); drawGallows(); }
+function setKeysEnabled(enabled){ [...hmKeys.querySelectorAll('button')].forEach(b=>b.disabled=!enabled); }
 function handleGuess(letter){
-  const up = letter.toUpperCase();
-  const ixs = [];
-  for (let i=0;i<target.length;i++){ if (target[i] === up) ixs.push(i); }
-  if (ixs.length){
-    ixs.forEach(i => revealed[i] = up);
-    hmWordEl.textContent = revealed.join(' ');
-    if (!revealed.includes('_')){
-      hmWins++; hmScore.textContent = `Wins ${hmWins}`;
-      hmInfo.textContent = `Great! The word was “${target.toLowerCase()}”`;
-      speak(target.toLowerCase());
-      bumpActivity(2);
-      recordWord(target.toLowerCase());
-      setKeysEnabled(false);
-    }
-  } else {
-    wrong++; drawGallows();
-    hmInfo.textContent = `${Math.max(0, maxWrong - wrong)} lives left`;
-    if (wrong >= maxWrong){
-      hmInfo.textContent = `Out of lives! The word was “${target.toLowerCase()}”`;
-      setKeysEnabled(false);
-    }
-  }
+  const up=letter.toUpperCase(); const ixs=[]; for(let i=0;i<target.length;i++){ if(target[i]===up) ixs.push(i); }
+  if(ixs.length){ ixs.forEach(i=>revealed[i]=up); hmWordEl.textContent=revealed.join(' '); if(!revealed.includes('_')){ hmWins++; hmScore.textContent=`Wins ${hmWins}`; hmInfo.textContent=`Great! The word was “${target.toLowerCase()}”`; speak(target.toLowerCase()); bumpActivity(2); recordWord(target.toLowerCase()); setKeysEnabled(false);} }
+  else { wrong++; drawGallows(); hmInfo.textContent=`${Math.max(0,maxWrong-wrong)} lives left`; if(wrong>=maxWrong){ hmInfo.textContent=`Out of lives! The word was “${target.toLowerCase()}”`; setKeysEnabled(false);} }
 }
-
-function buildKeyboard(){
-  hmKeys.innerHTML = "";
-  alphabet.forEach(ch=>{
-    const b = document.createElement('button');
-    b.className = "key"; b.textContent = ch;
-    b.onclick = () => { b.disabled = true; handleGuess(ch); };
-    hmKeys.appendChild(b);
-  });
-}
-buildKeyboard();
-newWord();
-
-document.getElementById('hmNew').onclick = () => { newWord(); };
-document.getElementById('hmSpeak').onclick = () => { speak(target.toLowerCase()); };
-
-window.addEventListener('keydown', (e)=>{
-  const k = e.key.toUpperCase();
-  if (alphabet.includes(k)){
-    const btn = [...hmKeys.querySelectorAll('button')].find(b=>b.textContent===k);
-    if (btn && !btn.disabled){ btn.click(); }
-  }
-});
+function buildKeyboard(){ hmKeys.innerHTML=""; alphabet.forEach(ch=>{ const b=document.createElement('button'); b.className="key"; b.textContent=ch; b.onclick=()=>{ b.disabled=true; handleGuess(ch); }; hmKeys.appendChild(b); }); }
+buildKeyboard(); newWord();
+document.getElementById('hmNew').onclick=()=>newWord(); document.getElementById('hmSpeak').onclick=()=>speak(target.toLowerCase());
+window.addEventListener('keydown',e=>{ const k=e.key.toUpperCase(); if(alphabet.includes(k)){ const btn=[...hmKeys.querySelectorAll('button')].find(b=>b.textContent===k); if(btn && !btn.disabled) btn.click(); } });
 </script>
 </body>
 </html>
