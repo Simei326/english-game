@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>English Food Game</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f9f9f9; margin:0; padding:20px; }
+    h1 { color: #333; }
+    nav { margin: 20px; }
+    nav button { padding: 10px 20px; margin: 5px; border: none; border-radius: 6px; background: #4CAF50; color: white; cursor: pointer; }
+    nav button.active { background: #2E7D32; }
+    section { display: none; }
+    section.active { display: block; }
+
+    /* Flashcards */
+    #flashcard { border: 2px solid #ccc; border-radius: 12px; padding: 30px; background: white; width: 280px; height: 280px; margin: 20px auto; display:flex;align-items:center;justify-content:center; }
+    #flashcard .content { font-size: 90px; }
+
+    /* Quiz */
+    .quiz-option { display: inline-block; margin: 10px; cursor: pointer; border: 2px solid #ccc; border-radius: 12px; padding: 20px; background:white; width: 120px; height: 120px; display:flex; align-items:center; justify-content:center; }
+    .quiz-option:hover { border-color:#4CAF50; }
+
+    img.quiz-img { width: 96px; height: 96px; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <h1>🍎 English Food Game</h1>
+  <nav>
+    <button data-tab="flashcards" class="active">Flashcards</button>
+    <button data-tab="quiz">Quiz</button>
+  </nav>
+
+  <!-- Flashcards -->
+  <section id="flashcards" class="active">
+    <div id="flashcard"><div class="content" id="fcContent"></div></div>
+    <p id="fcWord"></p>
+    <button id="fcPrev">⏮ Prev</button>
+    <button id="fcNext">Next ⏭</button>
+  </section>
+
+  <!-- Quiz -->
+  <section id="quiz">
+    <h2 id="quizQuestion">Question</h2>
+    <div id="quizOptions"></div>
+    <p id="quizProgress"></p>
+    <div id="quizResult"></div>
+  </section>
+
+<script>
+/* =====================
+   Word Bank
+   ===================== */
+const WORD_BANK = [
+  { word: "cake", hint: "sweet baked dessert", pic: "🎂" },
+  { word: "rice", hint: "small white grains", pic: "🍚" },
+  { word: "sandwich", hint: "two bread slices with filling", pic: "🥪" },
+  { word: "pizza", hint: "Italian dish with cheese and tomato", pic: "🍕" },
+  { word: "crisps", hint: "thin fried potato snack (UK)", pic: "images/crisps.png" },
+  { word: "biscuit", hint: "small baked snack", pic: "🍪" },
+  { word: "noodle", hint: "long, thin pasta", pic: "🍜" },
+  { word: "bread", hint: "baked food from flour", pic: "🍞" },
+  { word: "soup", hint: "liquid food", pic: "🥣" },
+  { word: "pie", hint: "pastry with filling", pic: "🥧" }
+];
+
+/* =====================
+   Render Emoji or Image
+   ===================== */
+function renderPic(pic, word){
+  if(pic.endsWith(".png") || pic.endsWith(".jpg") || pic.endsWith(".jpeg")){
+    return `<img src="${pic}" alt="${word}" class="quiz-img">`;
+  }
+  return `<div style="font-size:86px">${pic}</div>`;
+}
+
+/* =====================
+   Tabs
+   ===================== */
+document.querySelectorAll("nav button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    let id = btn.dataset.tab;
+    document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  });
+});
+
+/* =====================
+   Flashcards
+   ===================== */
+let fcIndex = 0;
+const fcContent = document.getElementById("fcContent");
+const fcWord = document.getElementById("fcWord");
+
+function showFlashcard(){
+  let card = WORD_BANK[fcIndex];
+  fcContent.innerHTML = renderPic(card.pic, card.word);
+  fcWord.textContent = card.word;
+}
+document.getElementById("fcPrev").onclick = ()=>{
+  fcIndex = (fcIndex - 1 + WORD_BANK.length) % WORD_BANK.length;
+  showFlashcard();
+};
+document.getElementById("fcNext").onclick = ()=>{
+  fcIndex = (fcIndex + 1) % WORD_BANK.length;
+  showFlashcard();
+};
+showFlashcard();
+
+/* =====================
+   Quiz
+   ===================== */
+let quizIndex = 0;
+let wrongAnswers = [];
+const quizQuestion = document.getElementById("quizQuestion");
+const quizOptions = document.getElementById("quizOptions");
+const quizProgress = document.getElementById("quizProgress");
+const quizResult = document.getElementById("quizResult");
+
+function startQuiz(){
+  quizIndex = 0;
+  wrongAnswers = [];
+  quizResult.innerHTML = "";
+  showQuiz();
+}
+
+function showQuiz(){
+  if(quizIndex >= WORD_BANK.length){
+    finishQuiz();
+    return;
+  }
+  let card = WORD_BANK[quizIndex];
+  quizQuestion.textContent = `Tap the picture for: "${card.word}"`;
+  quizProgress.textContent = `Question ${quizIndex+1} of ${WORD_BANK.length}`;
+
+  // make 4 options
+  let options = [card];
+  while(options.length < 4){
+    let rnd = WORD_BANK[Math.floor(Math.random()*WORD_BANK.length)];
+    if(!options.includes(rnd)) options.push(rnd);
+  }
+  options.sort(()=>Math.random()-0.5);
+
+  quizOptions.innerHTML = "";
+  options.forEach(opt=>{
+    let btn = document.createElement("div");
+    btn.className = "quiz-option";
+    btn.innerHTML = renderPic(opt.pic, opt.word);
+    btn.onclick = ()=>{
+      if(opt.word === card.word){
+        quizIndex++;
+        showQuiz();
+      } else {
+        wrongAnswers.push(card);
+        quizIndex++;
+        showQuiz();
+      }
+    };
+    quizOptions.appendChild(btn);
+  });
+}
+
+function finishQuiz(){
+  quizOptions.innerHTML = "";
+  quizQuestion.textContent = "Quiz Finished!";
+  quizProgress.textContent = "";
+  if(wrongAnswers.length>0){
+    quizResult.innerHTML = `<p>You missed ${wrongAnswers.length} words. Review them below:</p>`;
+    wrongAnswers.forEach(card=>{
+      let btn = document.createElement("div");
+      btn.className = "quiz-option";
+      btn.innerHTML = renderPic(card.pic, card.word) + `<br><small>${card.word}</small>`;
+      btn.onclick = ()=>{
+        alert(`This is "${card.word}"`);
+      };
+      quizResult.appendChild(btn);
+    });
+  } else {
+    quizResult.innerHTML = "<p>Excellent! You got everything right 🎉</p>";
+  }
+}
+startQuiz();
+</script>
+</body>
+</html>
