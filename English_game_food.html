@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Global English Playground — Food (Pics + Quiz + Hangman)</title>
+<title>Global English Playground — Food & Hangman</title>
 <style>
   :root { --glass: rgba(255,255,255,.1); }
   body {
@@ -37,11 +37,10 @@
   .hint { font-size:22px; font-weight:700; }
 
   /* Quiz */
-  .option { padding:12px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; display:grid; place-items:center; }
+  .option { padding:12px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; }
   .option:hover { background:#f8fafc; }
   .list { display:flex; flex-wrap:wrap; gap:6px; }
   .tag { background:#f1f5f9; border:1px solid #e2e8f0; padding:6px 10px; border-radius:999px; }
-  .quiz-img { width:96px; height:96px; object-fit:contain; }
 
   /* Hangman */
   canvas { border-radius:16px; background:#fff; border:1px solid #e5e7eb; width:100%; height:auto; }
@@ -57,7 +56,7 @@
     <header>
       <span class="pill">Fun · Voice · Progress</span>
       <h1>Global English Playground — Food</h1>
-      <div class="sub">Picture flashcards, picture-match quiz (with mistakes review), and a Hangman game.</div>
+      <div class="sub">Flashcards, Quiz (with mistakes review), and a Hangman game for learning food words.</div>
     </header>
 
     <nav>
@@ -168,20 +167,19 @@
 
 <script>
 /* =======================
-   Content: Food words (mixed emoji + image)
-   Put crisps.png in /images as described.
+   Content: Food words
    ======================= */
 const WORD_BANK = [
-  { word: "cake",     hint: "sweet baked dessert",                 pic: "🍰" },
-  { word: "rice",     hint: "small white grain, staple food",      pic: "🍚" },
-  { word: "sandwich", hint: "filling between slices of bread",     pic: "🥪" },
-  { word: "pizza",    hint: "flat bread with cheese & toppings",   pic: "🍕" },
-  { word: "crisps",   hint: "thin fried potato snack (UK)",        pic: "images/crisps.png" }, // your real image
-  { word: "biscuit",  hint: "sweet baked cookie (UK)",             pic: "🍪" },
-  { word: "noodle",   hint: "long thin strips of dough",           pic: "🍜" },
-  { word: "bread",    hint: "baked loaf made from flour",          pic: "🍞" },
-  { word: "soup",     hint: "warm liquid dish",                    pic: "🍲" },
-  { word: "pie",      hint: "baked pastry with filling",           pic: "🥧" }
+  { word: "cake",     hint: "sweet baked dessert" },
+  { word: "rice",     hint: "small white grain, staple food" },
+  { word: "sandwich", hint: "filling between slices of bread" },
+  { word: "pizza",    hint: "flat bread with cheese and toppings" },
+  { word: "crisps",   hint: "thin fried potato snacks (UK)" },
+  { word: "biscuit",  hint: "sweet baked cookie (UK)" },
+  { word: "noodle",   hint: "long thin strips of dough" },
+  { word: "bread",    hint: "baked loaf made from flour" },
+  { word: "soup",     hint: "warm liquid dish" },
+  { word: "pie",      hint: "baked pastry with filling" }
 ];
 
 function speak(text){
@@ -193,24 +191,13 @@ function speak(text){
   speechSynthesis.speak(u);
 }
 
-/* Render emoji OR image (with fallback text if image fails) */
-function renderPic(pic, word, size=96){
-  const lower = String(pic).toLowerCase();
-  const isImg = lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".webp") || lower.endsWith(".svg");
-  if (isImg) {
-    return `<img src="${pic}" alt="${word}" class="quiz-img" style="width:${size}px;height:${size}px;object-fit:contain"
-      onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'${word}',style:'padding:8px;font-weight:700'}))">`;
-  }
-  return `<div style="font-size:${size-10}px;line-height:1">${pic}</div>`;
-}
-
 /* =======================
    Progress (localStorage)
    ======================= */
-const STORE_KEY = "engPlay_food_purple_v1";
+const STORE_KEY = "engPlay_food_v1";
 function loadProgress(){
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || { points:0, streak:0, lastActive:null, words:[] }; }
-  catch { return { points:0, streak:0, lastActive:null, words:[] }; }
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || { points:0, streak:0, lastActive:null, words:[], sessions:0 }; }
+  catch { return { points:0, streak:0, lastActive:null, words:[], sessions:0 }; }
 }
 function saveProgress(p){ localStorage.setItem(STORE_KEY, JSON.stringify(p)); }
 function todayISO(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()).toISOString(); }
@@ -263,8 +250,9 @@ tabs.forEach(btn=>{
 });
 
 /* =======================
-   Flashcards (PICTURE FIRST)
+   Flashcards
    ======================= */
+const fcWordEl = document.getElementById('fcWord');
 const fcFace = document.getElementById('fcFace');
 const fcIndexEl = document.getElementById('fcIndex');
 const fcTotalEl = document.getElementById('fcTotal');
@@ -276,22 +264,10 @@ function flashRender(){
   const card = WORD_BANK[fcI];
   fcIndexEl.textContent = fcI + 1;
   fcPractice.textContent = `Say: “${card.word}”`;
-
-  const picHTML = renderPic(card.pic, card.word, 140);
-
   if (!fcShowHint){
-    fcFace.innerHTML = `
-      <div style="display:grid;place-items:center;gap:8px">
-        ${picHTML}
-        <div class="muted">What is this food? (Click “Show hint”)</div>
-      </div>`;
+    fcFace.innerHTML = `<div class="word">${card.word}</div><div class="muted">Click “Show hint”</div>`;
   } else {
-    fcFace.innerHTML = `
-      <div style="display:grid;place-items:center;gap:8px">
-        ${picHTML}
-        <div class="word">${card.word}</div>
-        <div class="hint">${card.hint}</div>
-      </div>`;
+    fcFace.innerHTML = `<div class="hint">${card.hint}</div>`;
   }
 }
 flashRender();
@@ -302,7 +278,7 @@ document.getElementById('fcKnow').onclick = () => { bumpActivity(2); recordWord(
 document.getElementById('fcSpeak').onclick = () => speak(WORD_BANK[fcI].word);
 
 /* =======================
-   QUIZ: Picture match + mistakes review
+   Quiz (stores mistakes + redo)
    ======================= */
 const qProg = document.getElementById('qProg');
 const qScorePill = document.getElementById('qScorePill');
@@ -313,39 +289,38 @@ const qMistakesList = document.getElementById('qMistakesList');
 const qRedo = document.getElementById('qRedo');
 const qRestart = document.getElementById('qRestart');
 
-const MISTAKES_KEY = "engPlay_food_pics_quiz_mistakes_v2";
-const pick = arr => arr[Math.floor(Math.random()*arr.length)];
-const loadSavedMistakes = () => { try{return JSON.parse(localStorage.getItem(MISTAKES_KEY))||[]}catch{ return []; } };
-const saveSavedMistakes = a => localStorage.setItem(MISTAKES_KEY, JSON.stringify(a));
+const MISTAKES_KEY = "engPlay_food_quiz_mistakes";
+function loadSavedMistakes(){ try{ return JSON.parse(localStorage.getItem(MISTAKES_KEY))||[];}catch{ return []; } }
+function saveSavedMistakes(arr){ localStorage.setItem(MISTAKES_KEY, JSON.stringify(arr)); }
 
 let qIndex = 0, qScore = 0, qTotal = 6;
-let qPool = [...WORD_BANK];
-let qWrongThisRun = [];
+let qPool = [...WORD_BANK];           // active pool for current run
+let qWrongThisRun = [];               // {word,hint} that were wrong this time
 
 function startQuiz(pool=WORD_BANK){
   qPool = [...pool];
-  qIndex = 0; qScore = 0; qWrongThisRun = [];
+  qIndex = 0; qScore = 0;
+  qWrongThisRun = [];
   qSummary.style.display = "none";
   qOptions.innerHTML = "";
   quizRender();
 }
+function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
 function makeQuestion(){
-  const correct = pick(qPool);
-  const others = WORD_BANK.filter(w=>w.word!==correct.word).sort(()=>0.5-Math.random()).slice(0,3);
-  const options = [...others, correct].sort(()=>0.5-Math.random());
-  return {
-    prompt: `Tap the picture for: “${correct.word}”`,
-    options, answer: correct.word, word: correct.word, hint: correct.hint
-  };
+  const correct = pickRandom(qPool);
+  // Prompt with the hint; options are WORDS
+  const wrongWords = WORD_BANK.filter(w=>w.word!==correct.word).sort(()=>0.5-Math.random()).slice(0,3).map(o=>o.word);
+  const options = [...wrongWords, correct.word].sort(()=>0.5-Math.random());
+  return { prompt:`Which word matches this hint: “${correct.hint}”?`, options, answer: correct.word, word: correct.word, hint: correct.hint };
 }
 
 function quizRender(){
   if (qIndex >= qTotal){
     qPrompt.textContent = `Finished! Your score: ${qScore} / ${qTotal}`;
     qOptions.innerHTML = "";
+    // Build summary of mistakes
     qMistakesList.innerHTML = "";
-
     if (qWrongThisRun.length){
       const saved = new Set(loadSavedMistakes());
       qWrongThisRun.forEach(({word, hint})=>{
@@ -373,17 +348,14 @@ function quizRender(){
   qOptions.innerHTML = "";
 
   q.options.forEach(opt=>{
-    const btn = document.createElement('button');
+    const btn = document.createElement('div');
     btn.className = "option";
-    btn.style.minWidth = "120px";
-    btn.style.height = "120px";
-    btn.innerHTML = renderPic(opt.pic, opt.word, 80);
-    btn.setAttribute("aria-label", opt.word);
-
+    btn.textContent = opt;
     btn.onclick = () => {
-      if (opt.word === q.answer){
-        qScore++; bumpActivity(2); recordWord(q.word); speak(q.word);
+      if (opt === q.answer){ 
+        qScore++; bumpActivity(2); recordWord(q.word);
       } else {
+        // store mistake for this run
         qWrongThisRun.push({ word: q.word, hint: q.hint });
       }
       qIndex++; quizRender();
@@ -394,11 +366,15 @@ function quizRender(){
 
 qRedo.onclick = ()=>{
   if (!qWrongThisRun.length) return;
+  // Build a pool from the mistakes and run a short quiz with them
   const pool = WORD_BANK.filter(w => qWrongThisRun.some(m => m.word === w.word));
   qTotal = Math.max(1, pool.length);
   startQuiz(pool);
 };
-qRestart.onclick = ()=>{ qTotal = 6; startQuiz(WORD_BANK); };
+qRestart.onclick = ()=>{
+  qTotal = 6;
+  startQuiz(WORD_BANK);
+};
 startQuiz(WORD_BANK);
 
 /* =======================
