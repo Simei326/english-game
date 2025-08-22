@@ -1,186 +1,495 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>English Food Game</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; background: #f9f9f9; margin:0; padding:20px; }
-    h1 { color: #333; }
-    nav { margin: 20px; }
-    nav button { padding: 10px 20px; margin: 5px; border: none; border-radius: 6px; background: #4CAF50; color: white; cursor: pointer; }
-    nav button.active { background: #2E7D32; }
-    section { display: none; }
-    section.active { display: block; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Global English Playground — Food (Pics + Quiz + Hangman)</title>
+<style>
+  :root { --glass: rgba(255,255,255,.1); }
+  body {
+    margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    background: linear-gradient(135deg, #c026d3, #4f46e5, #f59e0b);
+    min-height:100vh; color:#111; display:flex; align-items:center; justify-content:center;
+  }
+  .wrap { width:min(1100px, 96vw); margin:36px auto; }
+  .glass { background:var(--glass); border:1px solid rgba(255,255,255,.35); backdrop-filter: blur(8px);
+           border-radius:22px; box-shadow:0 12px 36px rgba(0,0,0,.25); }
+  header { color:#fff; padding:18px 20px 8px; }
+  header h1 { margin:0; font-size: clamp(22px, 4.6vw, 36px); }
+  .sub { opacity:.9; }
+  .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#ffffff22; color:#fff; font-size:12px; border:1px solid #ffffff55; }
+  nav { display:flex; gap:10px; padding:12px 14px; flex-wrap:wrap; }
+  nav button { appearance:none; border:0; padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; color:#fff; background:#00000022; border:1px solid #ffffff55; }
+  nav button.active { background:#10b981; border-color:#10b981; }
+  .grid { display:grid; grid-template-columns: 1.1fr .9fr; gap:16px; }
+  .card { background:#fff; border-radius:18px; padding:14px; border:1px solid #e5e7eb; }
+  .muted { color:#64748b; font-size:14px; }
+  .stat { font-size:36px; font-weight:800; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  .btn { appearance:none; border:0; padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; color:#fff; background:#6366f1; box-shadow:0 6px 18px rgba(0,0,0,.18); }
+  .btn.alt { background:#10b981; }
+  .btn.ghost { background:#e2e8f0; color:#111; }
+  kbd { background:#e2e8f0; padding:2px 6px; border-radius:6px; }
 
-    /* Flashcards */
-    #flashcard { border: 2px solid #ccc; border-radius: 12px; padding: 30px; background: white; width: 280px; height: 280px; margin: 20px auto; display:flex;align-items:center;justify-content:center; }
-    #flashcard .content { font-size: 90px; }
+  /* Flashcards */
+  .flash-face { border-radius:16px; border:1px solid #fcd34d; background:linear-gradient(135deg,#fff7ed,#fef3c7); padding:20px; text-align:center; }
+  .word { font-size:44px; font-weight:800; }
+  .hint { font-size:22px; font-weight:700; }
 
-    /* Quiz */
-    .quiz-option { display: inline-block; margin: 10px; cursor: pointer; border: 2px solid #ccc; border-radius: 12px; padding: 20px; background:white; width: 120px; height: 120px; display:flex; align-items:center; justify-content:center; }
-    .quiz-option:hover { border-color:#4CAF50; }
+  /* Quiz */
+  .option { padding:12px; border:1px solid #e5e7eb; border-radius:12px; cursor:pointer; display:grid; place-items:center; }
+  .option:hover { background:#f8fafc; }
+  .list { display:flex; flex-wrap:wrap; gap:6px; }
+  .tag { background:#f1f5f9; border:1px solid #e2e8f0; padding:6px 10px; border-radius:999px; }
+  .quiz-img { width:96px; height:96px; object-fit:contain; }
 
-    img.quiz-img { width: 96px; height: 96px; object-fit: contain; }
-  </style>
+  /* Hangman */
+  canvas { border-radius:16px; background:#fff; border:1px solid #e5e7eb; width:100%; height:auto; }
+  .hangman-word { letter-spacing:.25em; font-size:28px; font-weight:800; text-align:center; }
+  .kbd-grid { display:grid; grid-template-columns: repeat(13, minmax(0,1fr)); gap:6px; }
+  .key { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:8px 0; text-align:center; cursor:pointer; font-weight:600; }
+  .key:disabled { opacity:.45; cursor:not-allowed; }
+  @media (max-width: 880px) { .grid { grid-template-columns: 1fr; } .kbd-grid { grid-template-columns: repeat(9, minmax(0,1fr)); } }
+</style>
 </head>
 <body>
-  <h1>🍎 English Food Game</h1>
-  <nav>
-    <button data-tab="flashcards" class="active">Flashcards</button>
-    <button data-tab="quiz">Quiz</button>
-  </nav>
+  <div class="wrap glass">
+    <header>
+      <span class="pill">Fun · Voice · Progress</span>
+      <h1>Global English Playground — Food</h1>
+      <div class="sub">Picture flashcards, picture-match quiz (with mistakes review), and a Hangman game.</div>
+    </header>
 
-  <!-- Flashcards -->
-  <section id="flashcards" class="active">
-    <div id="flashcard"><div class="content" id="fcContent"></div></div>
-    <p id="fcWord"></p>
-    <button id="fcPrev">⏮ Prev</button>
-    <button id="fcNext">Next ⏭</button>
-  </section>
+    <nav>
+      <button data-tab="dashboard" class="active">🏆 Dashboard</button>
+      <button data-tab="flashcards">🗂️ Flashcards</button>
+      <button data-tab="quiz">📝 Quiz</button>
+      <button data-tab="hangman">🪢 Hangman</button>
+    </nav>
 
-  <!-- Quiz -->
-  <section id="quiz">
-    <h2 id="quizQuestion">Question</h2>
-    <div id="quizOptions"></div>
-    <p id="quizProgress"></p>
-    <div id="quizResult"></div>
-  </section>
+    <!-- Dashboard -->
+    <section id="dashboard" class="content" style="padding:6px 14px 18px;">
+      <div class="grid">
+        <div class="card">
+          <div class="muted">Points</div>
+          <div class="stat" id="statPoints">0</div>
+          <div class="muted">Earn points by completing activities.</div>
+        </div>
+        <div class="card">
+          <div class="muted">Streak</div>
+          <div class="stat"><span id="statStreak">0</span> <span style="font-size:16px;font-weight:500;">days</span></div>
+          <div class="muted">Last active: <span id="statLast">—</span></div>
+        </div>
+        <div class="card" style="grid-column:1 / -1;">
+          <div class="muted">Words learned</div>
+          <div class="row" id="wordsRow" style="margin-top:6px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Flashcards -->
+    <section id="flashcards" class="content" hidden style="padding:6px 14px 18px;">
+      <div class="grid">
+        <div class="card">
+          <div class="row" style="justify-content:space-between;align-items:center;">
+            <span class="muted">Flashcard <span id="fcIndex">1</span> / <span id="fcTotal">0</span></span>
+            <button class="btn ghost" id="fcSpeak">🔊 Speak</button>
+          </div>
+          <div id="fcFace" class="flash-face" style="margin:12px 0;">
+            <div class="word" id="fcWord">cake</div>
+            <div class="muted">Click “Show hint”</div>
+          </div>
+          <div class="row">
+            <button class="btn alt" id="fcHint">Show hint</button>
+            <button class="btn" id="fcKnow">I knew it</button>
+            <button class="btn ghost" id="fcNext">Next</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="muted">Pronunciation practice</div>
+          <div style="font-size:20px; font-weight:700; margin-top:6px;" id="fcPractice">Say it out loud</div>
+          <div class="muted">Then use it in a sentence.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quiz -->
+    <section id="quiz" class="content" hidden style="padding:6px 14px 18px;">
+      <div class="card" id="quizBox">
+        <div class="row" style="justify-content:space-between;align-items:center;">
+          <span class="pill" id="qProg">Question 1 / 6</span>
+          <span class="pill" id="qScorePill">Score 0</span>
+        </div>
+        <h3 id="qPrompt" style="margin:12px 0 8px;"></h3>
+        <div id="qOptions" class="row"></div>
+
+        <div id="qSummary" style="margin-top:14px; display:none;">
+          <hr style="border:none;border-top:1px solid #e5e7eb; margin:10px 0;">
+          <div class="muted"><b>Summary of mistakes</b></div>
+          <div class="list" id="qMistakesList" style="margin-top:6px;"></div>
+          <div class="row" style="margin-top:10px;">
+            <button class="btn alt" id="qRedo">Redo my mistakes</button>
+            <button class="btn ghost" id="qRestart">Restart full quiz</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hangman -->
+    <section id="hangman" class="content" hidden style="padding:6px 14px 18px;">
+      <div class="grid">
+        <div class="card">
+          <canvas id="hmCanvas" width="520" height="340" aria-label="Hangman drawing"></canvas>
+          <div class="hangman-word" id="hmWord">_ _ _</div>
+          <div class="row" style="justify-content:center;margin-top:8px;">
+            <span class="pill" id="hmInfo">6 lives left</span>
+            <span class="pill" id="hmScore">Wins 0</span>
+          </div>
+          <div class="kbd-grid" id="hmKeys" style="margin-top:10px;"></div>
+          <div class="row" style="margin-top:10px; justify-content:center;">
+            <button class="btn alt" id="hmNew">New Word</button>
+            <button class="btn ghost" id="hmSpeak">🔊 Speak word</button>
+          </div>
+          <div class="muted" style="margin-top:8px;text-align:center;">Use your keyboard or tap the on-screen keys.</div>
+        </div>
+
+        <div class="card">
+          <div class="muted">How it works</div>
+          <ul class="muted" style="margin-top:6px;">
+            <li>Guess the food word.</li>
+            <li>Each wrong guess draws a new part; you have <b>6 lives</b>.</li>
+            <li>When you solve it, I’ll speak the word and you earn points.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
 
 <script>
-/* =====================
-   Word Bank
-   ===================== */
+/* =======================
+   Content: Food words (mixed emoji + image)
+   Put crisps.png in /images as described.
+   ======================= */
 const WORD_BANK = [
-  { word: "cake", hint: "sweet baked dessert", pic: "🎂" },
-  { word: "rice", hint: "small white grains", pic: "🍚" },
-  { word: "sandwich", hint: "two bread slices with filling", pic: "🥪" },
-  { word: "pizza", hint: "Italian dish with cheese and tomato", pic: "🍕" },
-  { word: "crisps", hint: "thin fried potato snack (UK)", pic: "images/crisps.png" },
-  { word: "biscuit", hint: "small baked snack", pic: "🍪" },
-  { word: "noodle", hint: "long, thin pasta", pic: "🍜" },
-  { word: "bread", hint: "baked food from flour", pic: "🍞" },
-  { word: "soup", hint: "liquid food", pic: "🥣" },
-  { word: "pie", hint: "pastry with filling", pic: "🥧" }
+  { word: "cake",     hint: "sweet baked dessert",                 pic: "🍰" },
+  { word: "rice",     hint: "small white grain, staple food",      pic: "🍚" },
+  { word: "sandwich", hint: "filling between slices of bread",     pic: "🥪" },
+  { word: "pizza",    hint: "flat bread with cheese & toppings",   pic: "🍕" },
+  { word: "crisps",   hint: "thin fried potato snack (UK)",        pic: "images/crisps.png" }, // your real image
+  { word: "biscuit",  hint: "sweet baked cookie (UK)",             pic: "🍪" },
+  { word: "noodle",   hint: "long thin strips of dough",           pic: "🍜" },
+  { word: "bread",    hint: "baked loaf made from flour",          pic: "🍞" },
+  { word: "soup",     hint: "warm liquid dish",                    pic: "🍲" },
+  { word: "pie",      hint: "baked pastry with filling",           pic: "🥧" }
 ];
 
-/* =====================
-   Render Emoji or Image
-   ===================== */
-function renderPic(pic, word){
-  if(pic.endsWith(".png") || pic.endsWith(".jpg") || pic.endsWith(".jpeg")){
-    return `<img src="${pic}" alt="${word}" class="quiz-img">`;
-  }
-  return `<div style="font-size:86px">${pic}</div>`;
+function speak(text){
+  if(!('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  const voices = speechSynthesis.getVoices?.() || [];
+  const en = voices.find(v => v.lang && v.lang.startsWith('en'));
+  if (en) u.voice = en; u.rate = 0.95;
+  speechSynthesis.speak(u);
 }
 
-/* =====================
+/* Render emoji OR image (with fallback text if image fails) */
+function renderPic(pic, word, size=96){
+  const lower = String(pic).toLowerCase();
+  const isImg = lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".webp") || lower.endsWith(".svg");
+  if (isImg) {
+    return `<img src="${pic}" alt="${word}" class="quiz-img" style="width:${size}px;height:${size}px;object-fit:contain"
+      onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'${word}',style:'padding:8px;font-weight:700'}))">`;
+  }
+  return `<div style="font-size:${size-10}px;line-height:1">${pic}</div>`;
+}
+
+/* =======================
+   Progress (localStorage)
+   ======================= */
+const STORE_KEY = "engPlay_food_purple_v1";
+function loadProgress(){
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || { points:0, streak:0, lastActive:null, words:[] }; }
+  catch { return { points:0, streak:0, lastActive:null, words:[] }; }
+}
+function saveProgress(p){ localStorage.setItem(STORE_KEY, JSON.stringify(p)); }
+function todayISO(){ const d=new Date(); return new Date(d.getFullYear(),d.getMonth(),d.getDate()).toISOString(); }
+function diffDays(a,b){ try { return Math.round((new Date(b)-new Date(a))/(1000*60*60*24)); } catch { return 0; } }
+
+let progress = loadProgress();
+function bumpActivity(pts=1){
+  const today = todayISO();
+  if (!progress.lastActive) progress.streak = 1;
+  else {
+    const d = diffDays(progress.lastActive, today);
+    if (d === 1) progress.streak += 1;
+    else if (d > 1) progress.streak = 1;
+  }
+  progress.lastActive = today;
+  progress.points += pts;
+  saveProgress(progress);
+  renderDashboard();
+}
+function recordWord(w){
+  if (!progress.words.includes(w)) progress.words.push(w);
+  saveProgress(progress); renderDashboard();
+}
+function renderDashboard(){
+  document.getElementById('statPoints').textContent = progress.points;
+  document.getElementById('statStreak').textContent = progress.streak || 0;
+  document.getElementById('statLast').textContent = progress.lastActive ? new Date(progress.lastActive).toDateString() : "—";
+  const wordsRow = document.getElementById('wordsRow');
+  wordsRow.innerHTML = "";
+  progress.words.forEach(w => {
+    const span = document.createElement('span');
+    span.className = "pill"; span.textContent = w;
+    wordsRow.appendChild(span);
+  });
+}
+renderDashboard();
+
+/* =======================
    Tabs
-   ===================== */
-document.querySelectorAll("nav button").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
-    btn.classList.add("active");
-    let id = btn.dataset.tab;
-    document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
-    document.getElementById(id).classList.add("active");
+   ======================= */
+const tabs = document.querySelectorAll('nav button');
+const sections = document.querySelectorAll('.content');
+tabs.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    tabs.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const id = btn.dataset.tab;
+    sections.forEach(s=> s.hidden = s.id !== id);
   });
 });
 
-/* =====================
-   Flashcards
-   ===================== */
-let fcIndex = 0;
-const fcContent = document.getElementById("fcContent");
-const fcWord = document.getElementById("fcWord");
+/* =======================
+   Flashcards (PICTURE FIRST)
+   ======================= */
+const fcFace = document.getElementById('fcFace');
+const fcIndexEl = document.getElementById('fcIndex');
+const fcTotalEl = document.getElementById('fcTotal');
+const fcPractice = document.getElementById('fcPractice');
+let fcI = 0, fcShowHint = false;
+fcTotalEl.textContent = WORD_BANK.length;
 
-function showFlashcard(){
-  let card = WORD_BANK[fcIndex];
-  fcContent.innerHTML = renderPic(card.pic, card.word);
-  fcWord.textContent = card.word;
+function flashRender(){
+  const card = WORD_BANK[fcI];
+  fcIndexEl.textContent = fcI + 1;
+  fcPractice.textContent = `Say: “${card.word}”`;
+
+  const picHTML = renderPic(card.pic, card.word, 140);
+
+  if (!fcShowHint){
+    fcFace.innerHTML = `
+      <div style="display:grid;place-items:center;gap:8px">
+        ${picHTML}
+        <div class="muted">What is this food? (Click “Show hint”)</div>
+      </div>`;
+  } else {
+    fcFace.innerHTML = `
+      <div style="display:grid;place-items:center;gap:8px">
+        ${picHTML}
+        <div class="word">${card.word}</div>
+        <div class="hint">${card.hint}</div>
+      </div>`;
+  }
 }
-document.getElementById("fcPrev").onclick = ()=>{
-  fcIndex = (fcIndex - 1 + WORD_BANK.length) % WORD_BANK.length;
-  showFlashcard();
-};
-document.getElementById("fcNext").onclick = ()=>{
-  fcIndex = (fcIndex + 1) % WORD_BANK.length;
-  showFlashcard();
-};
-showFlashcard();
+flashRender();
 
-/* =====================
-   Quiz
-   ===================== */
-let quizIndex = 0;
-let wrongAnswers = [];
-const quizQuestion = document.getElementById("quizQuestion");
-const quizOptions = document.getElementById("quizOptions");
-const quizProgress = document.getElementById("quizProgress");
-const quizResult = document.getElementById("quizResult");
+document.getElementById('fcHint').onclick = () => { fcShowHint = !fcShowHint; flashRender(); };
+document.getElementById('fcNext').onclick = () => { fcI = (fcI + 1) % WORD_BANK.length; fcShowHint = false; flashRender(); };
+document.getElementById('fcKnow').onclick = () => { bumpActivity(2); recordWord(WORD_BANK[fcI].word); fcI = (fcI + 1) % WORD_BANK.length; fcShowHint=false; flashRender(); };
+document.getElementById('fcSpeak').onclick = () => speak(WORD_BANK[fcI].word);
 
-function startQuiz(){
-  quizIndex = 0;
-  wrongAnswers = [];
-  quizResult.innerHTML = "";
-  showQuiz();
+/* =======================
+   QUIZ: Picture match + mistakes review
+   ======================= */
+const qProg = document.getElementById('qProg');
+const qScorePill = document.getElementById('qScorePill');
+const qPrompt = document.getElementById('qPrompt');
+const qOptions = document.getElementById('qOptions');
+const qSummary = document.getElementById('qSummary');
+const qMistakesList = document.getElementById('qMistakesList');
+const qRedo = document.getElementById('qRedo');
+const qRestart = document.getElementById('qRestart');
+
+const MISTAKES_KEY = "engPlay_food_pics_quiz_mistakes_v2";
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const loadSavedMistakes = () => { try{return JSON.parse(localStorage.getItem(MISTAKES_KEY))||[]}catch{ return []; } };
+const saveSavedMistakes = a => localStorage.setItem(MISTAKES_KEY, JSON.stringify(a));
+
+let qIndex = 0, qScore = 0, qTotal = 6;
+let qPool = [...WORD_BANK];
+let qWrongThisRun = [];
+
+function startQuiz(pool=WORD_BANK){
+  qPool = [...pool];
+  qIndex = 0; qScore = 0; qWrongThisRun = [];
+  qSummary.style.display = "none";
+  qOptions.innerHTML = "";
+  quizRender();
 }
 
-function showQuiz(){
-  if(quizIndex >= WORD_BANK.length){
-    finishQuiz();
+function makeQuestion(){
+  const correct = pick(qPool);
+  const others = WORD_BANK.filter(w=>w.word!==correct.word).sort(()=>0.5-Math.random()).slice(0,3);
+  const options = [...others, correct].sort(()=>0.5-Math.random());
+  return {
+    prompt: `Tap the picture for: “${correct.word}”`,
+    options, answer: correct.word, word: correct.word, hint: correct.hint
+  };
+}
+
+function quizRender(){
+  if (qIndex >= qTotal){
+    qPrompt.textContent = `Finished! Your score: ${qScore} / ${qTotal}`;
+    qOptions.innerHTML = "";
+    qMistakesList.innerHTML = "";
+
+    if (qWrongThisRun.length){
+      const saved = new Set(loadSavedMistakes());
+      qWrongThisRun.forEach(({word, hint})=>{
+        const tag = document.createElement('span');
+        tag.className = "tag"; tag.textContent = `${word} — ${hint}`;
+        qMistakesList.appendChild(tag);
+        saved.add(word);
+      });
+      saveSavedMistakes([...saved]);
+      qRedo.disabled = false;
+    } else {
+      const tag = document.createElement('span');
+      tag.className = "tag"; tag.textContent = "No mistakes — great job!";
+      qMistakesList.appendChild(tag);
+      qRedo.disabled = true;
+    }
+    qSummary.style.display = "block";
     return;
   }
-  let card = WORD_BANK[quizIndex];
-  quizQuestion.textContent = `Tap the picture for: "${card.word}"`;
-  quizProgress.textContent = `Question ${quizIndex+1} of ${WORD_BANK.length}`;
 
-  // make 4 options
-  let options = [card];
-  while(options.length < 4){
-    let rnd = WORD_BANK[Math.floor(Math.random()*WORD_BANK.length)];
-    if(!options.includes(rnd)) options.push(rnd);
-  }
-  options.sort(()=>Math.random()-0.5);
+  const q = makeQuestion();
+  qProg.textContent = `Question ${qIndex+1} / ${qTotal}`;
+  qScorePill.textContent = `Score ${qScore}`;
+  qPrompt.textContent = q.prompt;
+  qOptions.innerHTML = "";
 
-  quizOptions.innerHTML = "";
-  options.forEach(opt=>{
-    let btn = document.createElement("div");
-    btn.className = "quiz-option";
-    btn.innerHTML = renderPic(opt.pic, opt.word);
-    btn.onclick = ()=>{
-      if(opt.word === card.word){
-        quizIndex++;
-        showQuiz();
+  q.options.forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.className = "option";
+    btn.style.minWidth = "120px";
+    btn.style.height = "120px";
+    btn.innerHTML = renderPic(opt.pic, opt.word, 80);
+    btn.setAttribute("aria-label", opt.word);
+
+    btn.onclick = () => {
+      if (opt.word === q.answer){
+        qScore++; bumpActivity(2); recordWord(q.word); speak(q.word);
       } else {
-        wrongAnswers.push(card);
-        quizIndex++;
-        showQuiz();
+        qWrongThisRun.push({ word: q.word, hint: q.hint });
       }
+      qIndex++; quizRender();
     };
-    quizOptions.appendChild(btn);
+    qOptions.appendChild(btn);
   });
 }
 
-function finishQuiz(){
-  quizOptions.innerHTML = "";
-  quizQuestion.textContent = "Quiz Finished!";
-  quizProgress.textContent = "";
-  if(wrongAnswers.length>0){
-    quizResult.innerHTML = `<p>You missed ${wrongAnswers.length} words. Review them below:</p>`;
-    wrongAnswers.forEach(card=>{
-      let btn = document.createElement("div");
-      btn.className = "quiz-option";
-      btn.innerHTML = renderPic(card.pic, card.word) + `<br><small>${card.word}</small>`;
-      btn.onclick = ()=>{
-        alert(`This is "${card.word}"`);
-      };
-      quizResult.appendChild(btn);
-    });
+qRedo.onclick = ()=>{
+  if (!qWrongThisRun.length) return;
+  const pool = WORD_BANK.filter(w => qWrongThisRun.some(m => m.word === w.word));
+  qTotal = Math.max(1, pool.length);
+  startQuiz(pool);
+};
+qRestart.onclick = ()=>{ qTotal = 6; startQuiz(WORD_BANK); };
+startQuiz(WORD_BANK);
+
+/* =======================
+   Hangman Game (food words)
+   ======================= */
+const hmCanvas = document.getElementById('hmCanvas');
+const hctx = hmCanvas.getContext('2d');
+const hmWordEl = document.getElementById('hmWord');
+const hmInfo = document.getElementById('hmInfo');
+const hmScore = document.getElementById('hmScore');
+const hmKeys = document.getElementById('hmKeys');
+
+let hmWins = 0;
+let target = "", revealed = [], wrong = 0, maxWrong = 6;
+const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+function drawGallows(){
+  hctx.clearRect(0,0,hmCanvas.width,hmCanvas.height);
+  hctx.lineWidth = 4; hctx.strokeStyle = "#0f172a";
+  hctx.beginPath(); hctx.moveTo(40,300); hctx.lineTo(200,300); hctx.stroke();     // base
+  hctx.beginPath(); hctx.moveTo(80,300); hctx.lineTo(80,60); hctx.lineTo(220,60); hctx.lineTo(220,90); hctx.stroke();  // pole
+  if (wrong>0){ hctx.beginPath(); hctx.arc(220,115,25,0,Math.PI*2); hctx.stroke(); } // head
+  if (wrong>1){ hctx.beginPath(); hctx.moveTo(220,140); hctx.lineTo(220,210); hctx.stroke(); } // body
+  if (wrong>2){ hctx.beginPath(); hctx.moveTo(220,160); hctx.lineTo(190,190); hctx.stroke(); } // L arm
+  if (wrong>3){ hctx.beginPath(); hctx.moveTo(220,160); hctx.lineTo(250,190); hctx.stroke(); } // R arm
+  if (wrong>4){ hctx.beginPath(); hctx.moveTo(220,210); hctx.lineTo(195,250); hctx.stroke(); } // L leg
+  if (wrong>5){ hctx.beginPath(); hctx.moveTo(220,210); hctx.lineTo(245,250); hctx.stroke(); } // R leg
+}
+
+function newWord(){
+  const pick = WORD_BANK[Math.floor(Math.random()*WORD_BANK.length)];
+  target = pick.word.toUpperCase();
+  revealed = Array.from(target).map(ch => (ch==='-' ? '-' : '_'));
+  wrong = 0;
+  hmInfo.textContent = `${maxWrong - wrong} lives left`;
+  hmWordEl.textContent = revealed.join(' ');
+  setKeysEnabled(true);
+  drawGallows();
+}
+
+function setKeysEnabled(enabled){
+  [...hmKeys.querySelectorAll('button')].forEach(btn => btn.disabled = !enabled);
+}
+
+function handleGuess(letter){
+  const up = letter.toUpperCase();
+  const ixs = [];
+  for (let i=0;i<target.length;i++){ if (target[i] === up) ixs.push(i); }
+  if (ixs.length){
+    ixs.forEach(i => revealed[i] = up);
+    hmWordEl.textContent = revealed.join(' ');
+    if (!revealed.includes('_')){
+      hmWins++; hmScore.textContent = `Wins ${hmWins}`;
+      hmInfo.textContent = `Great! The word was “${target.toLowerCase()}”`;
+      speak(target.toLowerCase());
+      bumpActivity(2);
+      recordWord(target.toLowerCase());
+      setKeysEnabled(false);
+    }
   } else {
-    quizResult.innerHTML = "<p>Excellent! You got everything right 🎉</p>";
+    wrong++; drawGallows();
+    hmInfo.textContent = `${Math.max(0, maxWrong - wrong)} lives left`;
+    if (wrong >= maxWrong){
+      hmInfo.textContent = `Out of lives! The word was “${target.toLowerCase()}”`;
+      setKeysEnabled(false);
+    }
   }
 }
-startQuiz();
+
+function buildKeyboard(){
+  hmKeys.innerHTML = "";
+  alphabet.forEach(ch=>{
+    const b = document.createElement('button');
+    b.className = "key"; b.textContent = ch;
+    b.onclick = () => { b.disabled = true; handleGuess(ch); };
+    hmKeys.appendChild(b);
+  });
+}
+buildKeyboard();
+newWord();
+
+document.getElementById('hmNew').onclick = () => { newWord(); };
+document.getElementById('hmSpeak').onclick = () => { speak(target.toLowerCase()); };
+
+window.addEventListener('keydown', (e)=>{
+  const k = e.key.toUpperCase();
+  if (alphabet.includes(k)){
+    const btn = [...hmKeys.querySelectorAll('button')].find(b=>b.textContent===k);
+    if (btn && !btn.disabled){ btn.click(); }
+  }
+});
 </script>
 </body>
 </html>
